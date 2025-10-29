@@ -1,0 +1,410 @@
+{{template "layouts/main.html" .}}
+
+{{define "content"}}
+<div class="asset-management-container">
+    <!-- 页面标题栏 -->
+    <div class="page-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="bi bi-server me-2"></i>资产管理</h2>
+                <p>管理所有IT设备资产信息</p>
+            </div>
+            <button class="btn btn-primary" id="add-device-btn">
+                <i class="bi bi-plus-circle me-2"></i>添加设备
+            </button>
+        </div>
+    </div>
+    
+    <!-- 筛选和搜索区域 -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">设备筛选</h6>
+        </div>
+        <div class="card-body">
+            <form id="filter-form">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="device-name" class="form-label">设备名称</label>
+                        <input type="text" class="form-control" id="device-name" placeholder="设备名称搜索">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="device-type" class="form-label">设备类型</label>
+                        <select class="form-select" id="device-type">
+                            <option value="">全部</option>
+                            <option value="服务器">服务器</option>
+                            <option value="网络设备">网络设备</option>
+                            <option value="存储设备">存储设备</option>
+                            <option value="虚拟机">虚拟机</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="device-status" class="form-label">设备状态</label>
+                        <select class="form-select" id="device-status">
+                            <option value="">全部</option>
+                            <option value="运行中">运行中</option>
+                            <option value="维护中">维护中</option>
+                            <option value="已停用">已停用</option>
+                            <option value="待部署">待部署</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="idc-location" class="form-label">所属机房</label>
+                        <select class="form-select" id="idc-location">
+                            <option value="">全部</option>
+                            {{range .idcs}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="ip-address" class="form-label">IP地址</label>
+                        <input type="text" class="form-control" id="ip-address" placeholder="IP地址搜索">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="manufacturer" class="form-label">厂商</label>
+                        <input type="text" class="form-control" id="manufacturer" placeholder="厂商搜索">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="start-date" class="form-label">开始日期</label>
+                        <input type="date" class="form-control" id="start-date">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="end-date" class="form-label">结束日期</label>
+                        <input type="date" class="form-control" id="end-date">
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-12 text-center">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="bi bi-search me-2"></i>搜索
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="reset-filter">
+                            <i class="bi bi-arrow-counterclockwise me-2"></i>重置
+                        </button>
+                        <button type="button" class="btn btn-info ms-2" id="export-excel">
+                            <i class="bi bi-file-excel me-2"></i>导出Excel
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 设备列表表格 -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">设备列表</h6>
+                <div class="text-muted small">共 {{.totalCount}} 条记录</div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="device-table" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="select-all"></th>
+                            <th>设备名称</th>
+                            <th>设备类型</th>
+                            <th>IP地址</th>
+                            <th>所属机房</th>
+                            <th>厂商/型号</th>
+                            <th>设备状态</th>
+                            <th>资产编号</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .devices}}
+                        <tr>
+                            <td><input type="checkbox" class="device-checkbox" value="{{.ID}}"></td>
+                            <td><a href="/asset-management/device/{{.ID}}" class="text-primary">{{.Name}}</a></td>
+                            <td>{{.DeviceType}}</td>
+                            <td>{{.IPAddress}}</td>
+                            <td>{{.IDCName}}</td>
+                            <td>{{.Manufacturer}}/{{.Model}}</td>
+                            <td>
+                                <span class="badge bg-{{if eq .Status "运行中"}}success{{else if eq .Status "维护中"}}warning{{else if eq .Status "已停用"}}secondary{{else}}info{{end}}">
+                                    {{.Status}}
+                                </span>
+                            </td>
+                            <td>{{.AssetNumber}}</td>
+                            <td>{{.CreatedAt}}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="/asset-management/device/{{.ID}}" class="btn btn-sm btn-info">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-primary edit-device" data-id="{{.ID}}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-device" data-id="{{.ID}}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="10" class="text-center">暂无数据</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页控件 -->
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="text-sm text-muted">
+                    显示 {{.startIndex}} 到 {{.endIndex}} 条，共 {{.totalCount}} 条记录
+                </div>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination">
+                        <li class="page-item {{if eq .currentPage 1}}disabled{{end}}">
+                            <a class="page-link" href="?page=1" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item {{if eq .currentPage 1}}disabled{{end}}">
+                            <a class="page-link" href="?page={{.currentPage | minus 1}}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {{range .pageNumbers}}
+                        <li class="page-item {{if eq . $.currentPage}}active{{end}}">
+                            <a class="page-link" href="?page={{.}}">{{.}}</a>
+                        </li>
+                        {{end}}
+                        <li class="page-item {{if eq .currentPage .totalPages}}disabled{{end}}">
+                            <a class="page-link" href="?page={{.currentPage | plus 1}}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item {{if eq .currentPage .totalPages}}disabled{{end}}">
+                            <a class="page-link" href="?page={{.totalPages}}" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加/编辑设备模态框 -->
+<div class="modal fade" id="device-modal" tabindex="-1" aria-labelledby="device-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="device-modal-label">添加设备</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="device-form">
+                    <input type="hidden" id="device-id" value="">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-name" class="form-label">设备名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="device-form-name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-type" class="form-label">设备类型 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="device-form-type" required>
+                                <option value="">请选择设备类型</option>
+                                <option value="服务器">服务器</option>
+                                <option value="网络设备">网络设备</option>
+                                <option value="存储设备">存储设备</option>
+                                <option value="虚拟机">虚拟机</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-ip" class="form-label">IP地址</label>
+                            <input type="text" class="form-control" id="device-form-ip" placeholder="192.168.1.1">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-idc" class="form-label">所属机房 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="device-form-idc" required>
+                                <option value="">请选择机房</option>
+                                {{range .idcs}}
+                                <option value="{{.ID}}">{{.Name}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-manufacturer" class="form-label">厂商</label>
+                            <input type="text" class="form-control" id="device-form-manufacturer">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-model" class="form-label">型号</label>
+                            <input type="text" class="form-control" id="device-form-model">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-status" class="form-label">设备状态 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="device-form-status" required>
+                                <option value="">请选择设备状态</option>
+                                <option value="运行中">运行中</option>
+                                <option value="维护中">维护中</option>
+                                <option value="已停用">已停用</option>
+                                <option value="待部署">待部署</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="device-form-asset-number" class="form-label">资产编号</label>
+                            <input type="text" class="form-control" id="device-form-asset-number">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="device-form-description" class="form-label">设备描述</label>
+                            <textarea class="form-control" id="device-form-description" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="save-device">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+    $(document).ready(function() {
+        // 全选/取消全选
+        $('#select-all').on('change', function() {
+            const isChecked = $(this).is(':checked');
+            $('.device-checkbox').prop('checked', isChecked);
+        });
+        
+        // 重置筛选条件
+        $('#reset-filter').on('click', function() {
+            $('#filter-form')[0].reset();
+        });
+        
+        // 搜索表单提交
+        $('#filter-form').on('submit', function(e) {
+            e.preventDefault();
+            // 构建查询参数
+            const params = {
+                name: $('#device-name').val(),
+                type: $('#device-type').val(),
+                status: $('#device-status').val(),
+                idc: $('#idc-location').val(),
+                ip: $('#ip-address').val(),
+                manufacturer: $('#manufacturer').val(),
+                start_date: $('#start-date').val(),
+                end_date: $('#end-date').val(),
+                page: 1
+            };
+            
+            // 构建URL查询字符串
+            const queryString = Object.keys(params)
+                .filter(key => params[key])
+                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+                .join('&');
+            
+            // 重新加载页面
+            window.location.href = `/asset-management?${queryString}`;
+        });
+        
+        // 添加设备按钮点击
+        $('#add-device-btn').on('click', function() {
+            $('#device-modal-label').text('添加设备');
+            $('#device-form')[0].reset();
+            $('#device-id').val('');
+            $('#device-modal').modal('show');
+        });
+        
+        // 编辑设备按钮点击
+        $('.edit-device').on('click', function() {
+            const deviceId = $(this).data('id');
+            $('#device-modal-label').text('编辑设备');
+            $('#device-id').val(deviceId);
+            
+            // 加载设备信息
+            $.ajax({
+                url: `/api/devices/${deviceId}`,
+                type: 'GET',
+                success: function(device) {
+                    $('#device-form-name').val(device.name);
+                    $('#device-form-type').val(device.device_type);
+                    $('#device-form-ip').val(device.ip_address);
+                    $('#device-form-idc').val(device.idc_id);
+                    $('#device-form-manufacturer').val(device.manufacturer);
+                    $('#device-form-model').val(device.model);
+                    $('#device-form-status').val(device.status);
+                    $('#device-form-asset-number').val(device.asset_number);
+                    $('#device-form-description').val(device.description);
+                    $('#device-modal').modal('show');
+                }
+            });
+        });
+        
+        // 保存设备
+        $('#save-device').on('click', function() {
+            const deviceId = $('#device-id').val();
+            const deviceData = {
+                name: $('#device-form-name').val(),
+                device_type: $('#device-form-type').val(),
+                ip_address: $('#device-form-ip').val(),
+                idc_id: $('#device-form-idc').val(),
+                manufacturer: $('#device-form-manufacturer').val(),
+                model: $('#device-form-model').val(),
+                status: $('#device-form-status').val(),
+                asset_number: $('#device-form-asset-number').val(),
+                description: $('#device-form-description').val()
+            };
+            
+            const url = deviceId ? `/api/devices/${deviceId}` : '/api/devices';
+            const type = deviceId ? 'PUT' : 'POST';
+            
+            $.ajax({
+                url: url,
+                type: type,
+                contentType: 'application/json',
+                data: JSON.stringify(deviceData),
+                success: function() {
+                    $('#device-modal').modal('hide');
+                    location.reload();
+                }
+            });
+        });
+        
+        // 删除设备
+        $('.delete-device').on('click', function() {
+            const deviceId = $(this).data('id');
+            if (confirm('确定要删除这个设备吗？')) {
+                $.ajax({
+                    url: `/api/devices/${deviceId}`,
+                    type: 'DELETE',
+                    success: function() {
+                        location.reload();
+                    }
+                });
+            }
+        });
+        
+        // 导出Excel
+        $('#export-excel').on('click', function() {
+            // 获取当前筛选条件
+            const formData = $('#filter-form').serialize();
+            window.location.href = `/api/export/devices?${formData}`;
+        });
+    });
+</script>
+{{end}}
